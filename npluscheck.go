@@ -1,18 +1,17 @@
 package npluscheck
 
 import (
-	"fmt"
 	"go/ast"
-	"go/importer"
-	"go/parser"
 	"go/token"
 	"go/types"
-	"os"
 	"reflect"
 
+	_ "github.com/jmoiron/sqlx"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
+	_ "gorm.io/driver/sqlite"
+	_ "gorm.io/gorm"
 )
 
 var UsuallyDataBasePackages = []string{
@@ -26,7 +25,7 @@ var UsuallyDataBasePackages = []string{
 var Analyzer = &analysis.Analyzer{
 	Name: "npluscheck",
 	Doc:  "npluscheck finds execution SQL in iteration",
-	Run:  runNew,
+	Run:  run,
 	Requires: []*analysis.Analyzer{
 		inspect.Analyzer,
 	},
@@ -42,22 +41,11 @@ type Indicate struct {
 	mp map[token.Pos]bool
 }
 
-func runNew(pass *analysis.Pass) (interface{}, error) {
+func run(pass *analysis.Pass) (interface{}, error) {
+	info := pass.TypesInfo
 	inspect, _ := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 	nodeFilter := []ast.Node{
 		(*ast.FuncDecl)(nil),
-	}
-
-	conf := types.Config{
-		Importer: importer.Default(),
-	}
-	info := &types.Info{
-		Defs:       map[*ast.Ident]types.Object{},
-		Selections: map[*ast.SelectorExpr]*types.Selection{},
-	}
-
-	for _, file := range pass.Files {
-		conf.Check(pass.Pkg.Name(), pass.Fset, []*ast.File{file}, info)
 	}
 
 	result := &Indicate{
@@ -89,51 +77,6 @@ func checkNplus(pass *analysis.Pass, info *types.Info, fd *ast.FuncDecl) map[tok
 		}
 	}
 	return callinLoop
-}
-
-func run(pass *analysis.Pass) (interface{}, error) {
-	dirs, _ := os.Getwd()
-
-	fset := token.NewFileSet()
-
-	pkgs := make([]map[string]*ast.Package, 0)
-
-	pkg, err := parser.ParseDir(fset, dirs, nil, 0)
-	if err != nil {
-		return nil, err
-	}
-	if len(pkg) != 0 {
-		pkgs = append(pkgs, pkg)
-	}
-
-	packages := flatten(pkgs)
-
-	conf := types.Config{
-		Importer: importer.Default(),
-	}
-	info := &types.Info{
-		Defs:       map[*ast.Ident]types.Object{},
-		Selections: map[*ast.SelectorExpr]*types.Selection{},
-	}
-
-	for _, pkg := range packages {
-		for fileName := range pkg.Files {
-			conf.Check(fileName, fset, []*ast.File{pkg.Files[fileName]}, info)
-		}
-	}
-
-	for _, pkg := range packages {
-		ast.Inspect(pkg, func(n ast.Node) bool {
-			switch n := n.(type) {
-			case *ast.Ident:
-				info.ObjectOf(n)
-			case *ast.FuncDecl:
-				useDBAPIInFor(info, n)
-			}
-			return true
-		})
-	}
-	return nil, nil
 }
 
 func flatten(pkgs []map[string]*ast.Package) map[string]*ast.Package {
@@ -194,23 +137,6 @@ func extractSelectorExprFun(expr *ast.CallExpr) *ast.SelectorExpr {
 		return sel
 	}
 	return nil
-}
-
-func useDBAPIInFor(info *types.Info, fd *ast.FuncDecl) {
-	funcs := extractCalledFuncs(fd.Body.List, false)
-	for _, f := range funcs {
-		switch expr := f.expr.(type) {
-		case *ast.CallExpr:
-			// fmt.Println(f.Fun)
-			// fmt.Println(info.Selections)
-		case *ast.SelectorExpr:
-			if typ, ok := info.Selections[expr]; ok {
-				if contain(UsuallyDataBasePackages, typ.Obj().Pkg().Path()) && f.calledInFor {
-					fmt.Println("called in for statement")
-				}
-			}
-		}
-	}
 }
 
 func contain(strs []string, str string) bool {

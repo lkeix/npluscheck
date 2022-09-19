@@ -19,7 +19,6 @@ func TestStdDB(t *testing.T) {
 	analysistest.Run(t, td, Analyzer, "db")
 }
 
-/*
 func TestGorm(t *testing.T) {
 	td := analysistest.TestData()
 	analysistest.Run(t, td, Analyzer, "gorm_example")
@@ -29,4 +28,3 @@ func TestSqlx(t *testing.T) {
 	td := analysistest.TestData()
 	analysistest.Run(t, td, Analyzer, "sqlx_example")
 }
-*/
