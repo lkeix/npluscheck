@@ -6,12 +6,9 @@ import (
 	"go/types"
 	"reflect"
 
-	_ "github.com/jmoiron/sqlx"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
-	_ "gorm.io/driver/sqlite"
-	_ "gorm.io/gorm"
 )
 
 var UsuallyDataBasePackages = []string{
@@ -43,6 +40,7 @@ type Indicate struct {
 
 func run(pass *analysis.Pass) (interface{}, error) {
 	info := pass.TypesInfo
+
 	inspect, _ := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 	nodeFilter := []ast.Node{
 		(*ast.FuncDecl)(nil),

@@ -20,14 +20,15 @@ func Open() *gorm.DB {
 
 func Insert(u User) {
 	db := Open()
-	db.Model(&User).Create(u)
+	db.Model(&User{}).Create(u)
 }
 
 func example() {
+	u := User{
+		ID:   "hoge",
+		Name: "Fuga",
+	}
 	for i := 0; i < 10; i++ {
-		Insert(User{
-			ID:   "hoge",
-			Name: "Fuga",
-		})
+		Insert(u)
 	}
 }
